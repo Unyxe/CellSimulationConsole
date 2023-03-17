@@ -1,0 +1,8 @@
+C:\Users\lucky\source\repos\Simulation1try\Simulation1try\bin\Debug\Simulation1try.exe.config
+C:\Users\lucky\source\repos\Simulation1try\Simulation1try\bin\Debug\Simulation1try.exe
+C:\Users\lucky\source\repos\Simulation1try\Simulation1try\bin\Debug\Simulation1try.pdb
+C:\Users\lucky\source\repos\Simulation1try\Simulation1try\obj\Debug\Simulation1try.csproj.AssemblyReference.cache
+C:\Users\lucky\source\repos\Simulation1try\Simulation1try\obj\Debug\Simulation1try.csproj.SuggestedBindingRedirects.cache
+C:\Users\lucky\source\repos\Simulation1try\Simulation1try\obj\Debug\Simulation1try.csproj.CoreCompileInputs.cache
+C:\Users\lucky\source\repos\Simulation1try\Simulation1try\obj\Debug\Simulation1try.exe
+C:\Users\lucky\source\repos\Simulation1try\Simulation1try\obj\Debug\Simulation1try.pdb
