@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Security.Permissions;
@@ -24,6 +25,10 @@ namespace Simulation1try
         public static List<Cell> to_remove = new List<Cell>();
         static Random random = new Random();
         static string path_folder = @"C:\Users\lucky\Documents\DataSimulation\";
+        static bool log_file = false;
+        public static int life_span = 100;
+        public static int normal_energy = 200;
+        public static bool init_done = false;
         static void Main(string[] args)
         {
             Thread fps_thread = new Thread(() =>
@@ -33,16 +38,23 @@ namespace Simulation1try
                     Thread.Sleep(1000);
                     actual_fps = frames;
                     frames = 0;
+                    if (init_done)
+                    {
+                        try
+                        {
+                            //DisplayField(0);
+                        }
+                        catch { }
+                    }
                 }
             });
             fps_thread.Start();
+            Console.WriteLine(-67 % 60);
             Console.ReadLine();
             while (true)
             {
                 
                 generation++;
-
-
                 string gen_file_path = path_folder + "gen_" + generation + ".txt";
                 File.Create(gen_file_path).Close();
                 FileStream fs = new FileStream(gen_file_path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite);
@@ -55,15 +67,42 @@ namespace Simulation1try
                 to_remove = new List<Cell>();
                 FieldArrayInit();
 
-                cells.Add(new Cell(7, 8, random.Next(), 0));
+                cells.Add(new Cell(0, 0, 7, 8, random.Next(), 0, normal_energy, life_span));
 
-                cells.Add(new Cell(27, 28, random.Next(), 0));
+                cells.Add(new Cell(0, 0, 27, 8, random.Next(), 0, normal_energy, life_span));
 
 
-
+                init_done = true;
                 while (true)
                 {
-                    writer.WriteLine(cells.Count());
+                    if (log_file)
+                    {
+                        writer.WriteLine(cells.Count());
+                    }
+                    foreach(Cell cell in cells)
+                    {
+                        cell.x += width;
+                        cell.x %= width;
+
+                        cell.y += height;
+                        cell.y %= height;
+                    }
+                    foreach (Cell cell in buff)
+                    {
+                        cell.x += width;
+                        cell.x %= width;
+
+                        cell.y += height;
+                        cell.y %= height;
+                    }
+                    foreach (Cell cell in to_remove)
+                    {
+                        cell.x += width;
+                        cell.x %= width;
+
+                        cell.y += height;
+                        cell.y %= height;
+                    }
                     RefreshArrayCellPosition();
                     DisplayField(0);
 
@@ -71,6 +110,10 @@ namespace Simulation1try
                     {
                         cell.NextMove();
                         if (cell.health <= 0)
+                        {
+                            to_remove.Add(cell);
+                        }
+                        else if(cell.cell_type == 0 && cell.energy < -5)
                         {
                             to_remove.Add(cell);
                         }
@@ -87,7 +130,15 @@ namespace Simulation1try
                     to_remove.Clear();
                     if (frame_by_frame) { Console.ReadLine(); }
                     Thread.Sleep(1);
-                    if (cells.Count == 0)
+                    int count_norm_cells = 0;
+                    foreach(Cell c in cells)
+                    {
+                        if(c.cell_type == 0 || c.cell_type == 3)
+                        {
+                            count_norm_cells++;
+                        }
+                    }
+                    if (count_norm_cells == 0)
                     {
                         break;
                     }
@@ -95,7 +146,6 @@ namespace Simulation1try
                 }
                 writer.Close();
             }
-            Console.ReadLine();
         }
 
         static void FieldArrayInit() 
@@ -114,6 +164,7 @@ namespace Simulation1try
         static void DisplayField(int mode)
         {
             Console.Clear();
+            int[] cell_type = new int[4] {0, 0, 0, 0 };
             for (int i = 0; i < height; i++)
             {
                 for (int j = 0; j < width; j++)
@@ -124,7 +175,30 @@ namespace Simulation1try
                     }
                     else
                     {
-                        Console.Write("W|");
+                        Cell current_cell = GetCellFromCoord(j, i);
+                        if(current_cell == null)
+                        {
+                            continue;
+                        }
+                        int cell_type_current = current_cell.cell_type;
+                        cell_type[cell_type_current]++;
+                        
+                        switch (cell_type_current)
+                        {
+                            case 0:
+                                Console.Write("C|");
+                                break;
+                            case 1:
+                                Console.Write("L|");
+                                break;
+                            case 2:
+                                Console.Write("w|");
+                                break;
+                            case 3:
+                                Console.Write("S|");
+                                break;
+                        }
+                        
                     }
                     
                 }
@@ -133,6 +207,10 @@ namespace Simulation1try
             Console.WriteLine("\nPopulation: " + cells.Count);
             Console.WriteLine("Generation: " + generation);
             Console.WriteLine("FPS: " + actual_fps);
+
+            Console.WriteLine("\nNormal cells: " + cell_type[0]);
+            Console.WriteLine("Leaf cells: " + cell_type[1]);
+            Console.WriteLine("Wood cells: " + cell_type[2]);
         }
         static void RefreshArrayCellPosition()
         {
@@ -145,13 +223,35 @@ namespace Simulation1try
             }
             foreach (Cell cell in cells)
             {
+                //Console.WriteLine(cell.x + " " + cell.y);
                 field[cell.y][cell.x][0] = 1;
+                
             }
+        }
+        static Cell GetCellFromCoord(int x_w, int y_w)
+        {
+            foreach (Cell cell in cells)
+            {
+                if (cell.x == x_w && cell.y == y_w)
+                {
+                    return cell;
+                }
+            }
+            return null;
         }
     }
 
     class Cell
     {
+        public int cell_id;
+        public int cell_type;
+        public int parent_cell_id;
+
+        // 0 - normal cell
+        // 1 - leaf
+        // 2 - wood
+        // 3 - seed
+
         public int x;
         public int y;
 
@@ -159,42 +259,52 @@ namespace Simulation1try
         public double defence = 10;
         public double attack = 20;
 
-        public double health = 50;
-        public double energy = 0;
+        public double health;
+        public double energy;
 
         public static int genom_length = 128;
-        public static int genom_options = 3;
-        public static int genom_move_options = 16;
+        public static int genom_options = 4;
+        public static int cell_types_count = 4;
 
         public int[][] genom = new int[genom_length][];
 
         public int active_gen = 0;
         Random rn;
 
-        public Cell(int x_, int y_, int seed, int active_gen_)
+        public Cell(int cell_type_, int parent_cell_id_, int x_, int y_, int seed, int active_gen_, double energy_, double health_)
         {
+            energy = energy_;
+            health = health_;
+            parent_cell_id = parent_cell_id_;
+            cell_type = cell_type_;
             x = x_;
             y = y_;
             active_gen = active_gen_;
             rn = new Random(seed);
-
+            cell_id = rn.Next();
             for (int i = 0; i < genom_length; i++)
             {
                 genom[i] = new int[genom_options];
                 genom[i][0] = rn.Next() % genom_length;
-                genom[i][1] = rn.Next() % genom_move_options;
+                genom[i][1] = rn.Next() % 4;
                 genom[i][2] = rn.Next() % genom_length;
+                genom[i][3] = rn.Next() % cell_types_count;
             }
         }
 
-        public Cell(int x_, int y_, int seed, int active_gen_, int[][] genom_, double defence_, double attack_)
+        public Cell(int cell_type_, int parent_cell_id_, int x_, int y_, int seed, int active_gen_, int[][] genom_, double defence_, double attack_, double energy_, double health_)
         {
+            energy = energy_;
+            health = health_;
+            parent_cell_id = parent_cell_id_;
+            cell_type = cell_type_;
             x = x_;
             y = y_;
             defence = defence_;
             attack = attack_;
             active_gen = active_gen_;
             rn = new Random(seed);
+            cell_id = rn.Next();
             bool is_mutating = false;
             int m_x = 0;
             int m_y = 0;
@@ -210,10 +320,13 @@ namespace Simulation1try
                         m_v = rn.Next() % genom_length;
                         break;
                     case 1:
-                        m_v = rn.Next() % genom_move_options;
+                        m_v = rn.Next() % 4;
                         break;
                     case 2:
                         m_v = rn.Next() % genom_length;
+                        break;
+                    case 3:
+                        m_v = rn.Next() % cell_types_count;
                         break;
                 }
                 
@@ -223,7 +336,7 @@ namespace Simulation1try
             {
                 if (j % 2 == 0) 
                 {
-                    defence += rn.Next() % 11 - 20;
+                    defence += rn.Next() % 21 - 10;
                     if(defence < 1)
                     {
                         defence = 1;
@@ -231,7 +344,7 @@ namespace Simulation1try
                 }
                 else
                 {
-                    attack += rn.Next() % 11 - 20;
+                    attack += rn.Next() % 21 - 10;
                     if (attack < 1)
                     {
                         attack = 1;
@@ -255,6 +368,7 @@ namespace Simulation1try
 
         public void NextMove()
         {
+
             int count_how_many = 0;
             if(CheckPosition(x+1, y, true))
             {
@@ -272,51 +386,64 @@ namespace Simulation1try
             {
                 count_how_many++;
             }
-
-
             if (count_how_many == 0)
             {
                 count_how_many = 1;
             }
-            health -=count_how_many;
-            
-            energy+= 1/count_how_many;
-            int next_gen = genom[active_gen][0];
-            int move_type = genom[active_gen][1];
-            int breed_number = genom[active_gen][2];
-            active_gen = next_gen;
-
-            if(move_type == 0)
+            health -= 1;
+            switch (cell_type)
             {
-                energy += 3/count_how_many;
-            }else
-            if(move_type >= 1 && move_type <= 4 && energy >= 5)
-            {
-                if (Move(move_type))
-                {
-                    energy -= 5;
-                };
-            } else
-            if(move_type >= 5 && move_type <= 8 && energy >= 30)
-            {
-                
-                if(Breed(breed_number, move_type - 4))
-                {
-                    energy -= 30;
-                };
-            }else
-            if(move_type >= 9 && move_type <= 12 && energy >= 7)
-            {
-                int act_att = Attack(move_type-8);
-                energy += act_att * 10;
-                if (act_att != 0)
-                {
-                    energy -= 7;
-                }
+                case 0:
+                    DoCellMove(count_how_many);
+                    break;
+                case 1:
+                    Cell parent = GetCellFromID(parent_cell_id);
+                    if(parent != null)
+                    {
+                        parent.GetEnergy(15);
+                    }
+                    break;
+                case 2:
+                    break;
+                case 3:
+                    DoSeedCheck();
+                    break;
             }
-            else
+
+        }
+        public void DoCellMove(int how_many)
+        {
+            
+            int next_gen = genom[active_gen][0];
+            int breed_direction = genom[active_gen][1];
+            int breed_number = genom[active_gen][2];
+            int cell_type = genom[active_gen][3];
+            energy--;
+            if (energy > 10)
             {
-                energy += 1 / count_how_many;
+                energy -= 10;
+                Breed(breed_number, breed_direction, cell_type);
+            }
+            active_gen = next_gen;
+        }
+        public void DoSeedCheck()
+        {
+            if(GetCellFromID(parent_cell_id) == null)
+            {
+                cell_type = 0;
+            }
+        }
+        public void GetEnergy(double energy_)
+        {
+            if(cell_type == 0)
+            {
+                energy += energy_;
+                return;
+            }
+            Cell parent = GetCellFromID(parent_cell_id);
+            if(parent != null)
+            {
+                parent.GetEnergy(energy_);
             }
         }
         public int Attack(int direction)
@@ -367,38 +494,51 @@ namespace Simulation1try
             }
             return null;
         }
-        public bool Breed(int gen, int direction)
+        public Cell GetCellFromID(int id)
         {
+            foreach (Cell cell in SimulationMain.cells)
+            {
+                if (cell.cell_id == id)
+                {
+                    return cell;
+                }
+            }
+            return null;
+        }
+        public bool Breed(int gen, int direction, int type)
+        {
+            int target_x = x;
+            int target_y = y;
             switch (direction)
             {
                 case 1:
-                    if (CheckPosition(x + 1, y, false))
-                    {
-                        SimulationMain.buff.Add(new Cell(x + 1, y, rn.Next(), gen, genom, defence, attack));
-                    } else { return false; }
+                    target_x++;
                     break;
                 case 2:
-                    if (CheckPosition(x, y+1, false))
-                    {
-                        SimulationMain.buff.Add(new Cell(x, y+1, rn.Next(), gen, genom, defence, attack));
-                    }
-                    else { return false; }
+                    target_y++;
                     break;
                 case 3:
-                    if (CheckPosition(x - 1, y, false))
-                    {
-                        SimulationMain.buff.Add(new Cell(x - 1, y, rn.Next(), gen, genom, defence, attack));
-                    }
-                    else { return false; }
+                    target_x--;
                     break;
                 case 4:
-                    if (CheckPosition(x, y-1, false))
-                    {
-                        SimulationMain.buff.Add(new Cell(x, y-1, rn.Next(), gen, genom, defence, attack));
-                    }
-                    else { return false; }
+                    target_y--;
                     break;
             }
+            if (CheckPosition(target_x, target_y, false))
+            {
+                if(type == 0)         //Moving cell
+                {
+                    SimulationMain.buff.Add(new Cell(0, cell_id, target_x, target_y, rn.Next(), gen, genom, defence, attack, energy, health));
+                    SimulationMain.to_remove.Add(this);
+                    SimulationMain.buff.Add(new Cell(2, cell_id, x, y, rn.Next(), gen, genom, defence, attack, SimulationMain.normal_energy, SimulationMain.life_span));
+                }
+                else if(type != 2)
+                {
+                    SimulationMain.buff.Add(new Cell(type, cell_id, target_x, target_y, rn.Next(), gen, genom, defence, attack, SimulationMain.normal_energy, SimulationMain.life_span));
+                }
+                
+            }
+            else { return false; }
             return true;
         }
 
@@ -431,7 +571,9 @@ namespace Simulation1try
         }
         bool CheckPosition(int w_x, int w_y, bool check_occup)
         {
-            if (w_x < SimulationMain.width && w_y < SimulationMain.height && w_x >= 0 && w_y >= 0)
+            w_x %= SimulationMain.width;
+            w_y %= SimulationMain.height;
+            if ((w_x < SimulationMain.width && w_y < SimulationMain.height && w_x >= 0 && w_y >= 0) || true)
             {
                 bool is_occupied = false;
                 foreach(Cell cell in SimulationMain.cells)
